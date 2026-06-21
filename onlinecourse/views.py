@@ -1,5 +1,6 @@
 from django.shortcuts import render
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, HttpResponseBadRequest
+from django.contrib.auth.decorators import login_required
 # <HINT> Import any new Models here
 from .models import Course, Enrollment, Question, Choice, Submission
 from django.contrib.auth.models import User
@@ -104,18 +105,28 @@ def enroll(request, course_id):
 
 
 # Create an exam submission record for a course enrollment
+@login_required
 def submit(request, course_id):
+    # Submissions must be made via POST from the exam form
+    if request.method != 'POST':
+        return HttpResponseBadRequest('Exam submissions must use POST.')
     # Get the user and course object
     user = request.user
     course = get_object_or_404(Course, pk=course_id)
     # Get the associated enrollment created when the user enrolled the course
-    enrollment = Enrollment.objects.get(user=user, course=course)
+    # (404 rather than a 500 if the user never enrolled)
+    enrollment = get_object_or_404(Enrollment, user=user, course=course)
     # Create a submission referring to the enrollment
     submission = Submission.objects.create(enrollment=enrollment)
     # Collect the selected choices from the exam form
     selected_choices = extract_answers(request)
-    # Add each selected choice to the submission
-    submission.choices.set(selected_choices)
+    # Only accept choice ids that actually belong to this course's questions
+    valid_ids = list(
+        Choice.objects.filter(id__in=selected_choices, question__course=course)
+        .values_list('id', flat=True)
+    )
+    # Add each valid selected choice to the submission
+    submission.choices.set(valid_ids)
     # Redirect to the exam result with the submission id
     return HttpResponseRedirect(reverse(viewname='onlinecourse:show_exam_result',
                                          args=(course.id, submission.id)))
@@ -133,11 +144,19 @@ def extract_answers(request):
 
 
 # Check if the learner passed the exam and show their per-question results
+@login_required
 def show_exam_result(request, course_id, submission_id):
     context = {}
-    # Get the course and submission based on their ids
+    # Get the course and submission based on their ids.
+    # Tie the submission to the calling user AND the course in the URL so a
+    # learner cannot view another user's results (IDOR) or a mismatched URL.
     course = get_object_or_404(Course, pk=course_id)
-    submission = get_object_or_404(Submission, pk=submission_id)
+    submission = get_object_or_404(
+        Submission,
+        pk=submission_id,
+        enrollment__user=request.user,
+        enrollment__course_id=course_id,
+    )
     # Get the selected choice ids from the submission record
     selected_ids = submission.choices.values_list('id', flat=True)
     # Calculate the total score

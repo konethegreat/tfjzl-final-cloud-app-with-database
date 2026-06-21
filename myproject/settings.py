@@ -126,3 +126,6 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_ROOT = os.path.join(STATIC_ROOT, 'media')
 MEDIA_URL = '/media/'
 
+# Where @login_required redirects unauthenticated users
+LOGIN_URL = 'onlinecourse:login'
+
