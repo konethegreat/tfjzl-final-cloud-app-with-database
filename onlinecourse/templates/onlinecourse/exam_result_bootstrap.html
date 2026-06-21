@@ -35,45 +35,63 @@
     </div>
 </nav>
 
-<div class="container-fluid">
+<div class="container-fluid mt-3">
+    <h2>{{ course.name }} &mdash; Exam Result</h2>
+
     {% if grade > 80 %}
-    <div class="alert alert-success">
-       <h4>Congratulations, {{ course.name }} passed! Your score is {{ grade }}%</h4>
+    <!-- Pass output: congratulations message and final score -->
+    <div class="alert alert-success mt-2" role="alert">
+        <h4 class="alert-heading">Congratulations! You passed the exam.</h4>
+        <p class="mb-0">Your final score is <strong>{{ grade }}%</strong>.</p>
     </div>
-        {% else %}
-        <div class="alert alert-danger">
-            <h4>Failed, your score is {{ grade }}%. You need 80% to pass. Please re-test.</h4>
-        </div>
-        <a class="btn btn-link text-danger" href="{% url 'onlinecourse:course_details' course.id %}">Re-test</a>
-        {% endif %}
-        <div class="card-columns-vertical mt-1">
-        <h5 class="">Exam results</h5>
-            <!-- Display each question with its choices, marking correct ones and the learner's selections -->
-            {% for question in course.question_set.all %}
-            <div class="card mt-2">
-                <div class="card-header">
-                    <h5>{{ question.question_text }}</h5>
-                </div>
-                <div class="card-body">
-                    {% for choice in question.choice_set.all %}
-                        {% if choice.is_correct %}
-                            {% if choice.id in selected_ids %}
-                            <p class="text-success">&#10004; {{ choice.choice_text }} (correct answer, you selected this)</p>
-                            {% else %}
-                            <p class="text-success">{{ choice.choice_text }} (correct answer, you missed this)</p>
-                            {% endif %}
-                        {% else %}
-                            {% if choice.id in selected_ids %}
-                            <p class="text-danger">&#10008; {{ choice.choice_text }} (wrong answer, you selected this)</p>
-                            {% else %}
-                            <p class="text-muted">{{ choice.choice_text }}</p>
-                            {% endif %}
-                        {% endif %}
-                    {% endfor %}
-                </div>
+    <a class="btn btn-success" href="{% url 'onlinecourse:index' %}">Back to courses</a>
+    {% else %}
+    <!-- Fail output: final score and the option to retake the exam -->
+    <div class="alert alert-danger mt-2" role="alert">
+        <h4 class="alert-heading">Sorry, you failed the exam.</h4>
+        <p class="mb-0">Your final score is <strong>{{ grade }}%</strong>. You need more than 80% to pass.
+            Review the incorrect choices below and try again.</p>
+    </div>
+    <a class="btn btn-danger" href="{% url 'onlinecourse:course_details' course.id %}">Re-test</a>
+    {% endif %}
+
+    <!-- Exam results: per-question breakdown -->
+    <div class="mt-3">
+        <h4>Exam results</h4>
+        {% for question in course.question_set.all %}
+        <div class="card mt-2">
+            <div class="card-header">
+                <h5 class="mb-0">{{ question.question_text }}
+                    <span class="badge badge-secondary float-right">{{ question.grade }} pts</span>
+                </h5>
             </div>
-            {% endfor %}
+            <ul class="list-group list-group-flush">
+                {% for choice in question.choice_set.all %}
+                    {% if choice.is_correct and choice.id in selected_ids %}
+                    <li class="list-group-item list-group-item-success d-flex justify-content-between align-items-center">
+                        {{ choice.choice_text }}
+                        <span class="badge badge-success badge-pill">Correct &mdash; you selected this</span>
+                    </li>
+                    {% elif choice.is_correct %}
+                    <li class="list-group-item list-group-item-warning d-flex justify-content-between align-items-center">
+                        {{ choice.choice_text }}
+                        <span class="badge badge-warning badge-pill">Correct &mdash; you missed this</span>
+                    </li>
+                    {% elif choice.id in selected_ids %}
+                    <li class="list-group-item list-group-item-danger d-flex justify-content-between align-items-center">
+                        {{ choice.choice_text }}
+                        <span class="badge badge-danger badge-pill">Incorrect &mdash; you selected this</span>
+                    </li>
+                    {% else %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        {{ choice.choice_text }}
+                    </li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
         </div>
+        {% endfor %}
     </div>
+</div>
 </body>
 </html>
